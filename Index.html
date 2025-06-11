@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flappy Bird</title>
+<link rel="icon" href="first-image.jpeg" />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
+<style>
+:where([class^="ri-"])::before { content: "\f3c2"; }
+canvas { image-rendering: pixelated; }
+.game-container { touch-action: none; }
+</style>
+<script>
+tailwind.config = {
+theme: {
+extend: {
+colors: {
+primary: '#4CAF50',
+secondary: '#FFC107'
+},
+borderRadius: {
+'none': '0px',
+'sm': '4px',
+DEFAULT: '8px',
+'md': '12px',
+'lg': '16px',
+'xl': '20px',
+'2xl': '24px',
+'3xl': '32px',
+'full': '9999px',
+'button': '8px'
+}
+}
+}
+}
+</script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+<div class="game-container relative w-[320px] h-[480px] bg-white shadow-lg rounded-lg overflow-hidden">
+<canvas id="gameCanvas" width="320" height="480" class="absolute top-0 left-0"></canvas>
+<div id="startScreen" class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50">
+<h1 class="text-4xl font-bold text-white mb-8">Flappy Bird</h1>
+<button id="startButton" class="px-8 py-3 bg-primary text-white font-bold rounded-button hover:bg-opacity-90 cursor-pointer">
+Play Game
+</button>
+</div>
+<div id="gameOverScreen" class="absolute inset-0 flex-col items-center justify-center bg-black bg-opacity-50 hidden">
+<h2 class="text-3xl font-bold text-white mb-4">Game Over</h2>
+<div class="text-white mb-6">
+<p class="text-xl">Score: <span id="finalScore">0</span></p>
+<p class="text-xl">Best: <span id="bestScore">0</span></p>
+</div>
+<button id="restartButton" class="px-8 py-3 bg-primary text-white font-bold rounded-button hover:bg-opacity-90 cursor-pointer">
+Play Again
+</button>
+</div>
+<div id="scoreDisplay" class="absolute top-4 w-full text-center text-4xl font-bold text-white">0</div>
+</div>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const startScreen = document.getElementById('startScreen');
+const gameOverScreen = document.getElementById('gameOverScreen');
+const scoreDisplay = document.getElementById('scoreDisplay');
+const finalScore = document.getElementById('finalScore');
+const bestScore = document.getElementById('bestScore');
+
+let bird = {
+x: 50,
+y: 200,
+velocity: 0,
+gravity: 0.3,
+jump: -8,
+size: 30
+};
+
+let pipes = [];
+let score = 0;
+let animationFrameId;
+let isGameActive = false;
+
+const pipeWidth = 50;
+const pipeGap = 150;
+const pipeSpeed = 2;
+const birdImg = new Image();
+birdImg.src = 'https://static.readdy.ai/image/9d32b816deb1af5b13c1b3c98c0bd2bd/5431872384ff3f3d18195f18954fcea9.png';
+const pipeImg = new Image();
+pipeImg.src = 'https://static.readdy.ai/image/9d32b816deb1af5b13c1b3c98c0bd2bd/fb6fa2c9ccf05834e7b6f606f5674884.png';
+function drawBird() {
+ctx.drawImage(birdImg, bird.x, bird.y, bird.size, bird.size);
+}
+
+function drawPipes() {
+pipes.forEach(pipe => {
+ctx.save();
+ctx.translate(pipe.x + pipeWidth, pipe.top);
+ctx.rotate(Math.PI);
+ctx.drawImage(pipeImg, 0, 0, pipeWidth, pipe.top);
+ctx.restore();
+ctx.drawImage(pipeImg, pipe.x, pipe.top + pipeGap, pipeWidth, canvas.height - (pipe.top + pipeGap));
+});
+}
+
+function createPipe() {
+const minHeight = 50;
+const maxHeight = canvas.height - pipeGap - minHeight;
+const height = Math.floor(Math.random() * (maxHeight - minHeight) + minHeight);
+pipes.push({
+x: canvas.width,
+top: height,
+passed: false
+});
+}
+
+function updateGame() {
+bird.velocity += bird.gravity;
+bird.y += bird.velocity;
+pipes.forEach(pipe => {
+pipe.x -= pipeSpeed;
+
+if (!pipe.passed && pipe.x + pipeWidth < bird.x) {
+pipe.passed = true;
+score++;
+scoreDisplay.textContent = score;
+}
+
+if (
+bird.x + bird.size > pipe.x &&
+bird.x < pipe.x + pipeWidth &&
+(bird.y < pipe.top || bird.y + bird.size > pipe.top + pipeGap)
+) {
+gameOver();
+}
+});
+
+pipes = pipes.filter(pipe => pipe.x + pipeWidth > 0);
+
+if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - 200) {
+createPipe();
+}
+
+if (bird.y > canvas.height || bird.y < 0) {
+gameOver();
+}
+}
+
+function draw() {
+ctx.fillStyle = '#87CEEB';
+ctx.fillRect(0, 0, canvas.width, canvas.height);
+drawPipes();
+drawBird();
+}
+
+function gameLoop() {
+if (!isGameActive) return;
+updateGame();
+draw();
+animationFrameId = requestAnimationFrame(gameLoop);
+}
+
+function startGame() {
+isGameActive = true;
+score = 0;
+bird.y = 200;
+bird.velocity = 0;
+pipes = [];
+scoreDisplay.textContent = '0';
+startScreen.style.display = 'none';
+gameOverScreen.style.display = 'none';
+if (animationFrameId) {
+cancelAnimationFrame(animationFrameId);
+}
+gameLoop();
+}
+
+function gameOver() {
+isGameActive = false;
+if (animationFrameId) {
+cancelAnimationFrame(animationFrameId);
+}
+const currentBest = parseInt(localStorage.getItem('bestScore')) || 0;
+if (score > currentBest) {
+localStorage.setItem('bestScore', score);
+}
+finalScore.textContent = score;
+bestScore.textContent = Math.max(currentBest, score);
+gameOverScreen.style.display = 'flex';
+}
+
+function jump() {
+if (!isGameActive) return;
+bird.velocity = bird.jump;
+}
+
+document.getElementById('startButton').addEventListener('click', startGame);
+document.getElementById('restartButton').addEventListener('click', startGame);
+
+document.addEventListener('keydown', (e) => {
+if (e.code === 'Space') {
+jump();
+}
+});
+
+canvas.addEventListener('click', jump);
+canvas.addEventListener('touchstart', (e) => {
+e.preventDefault();
+jump();
+});
+
+bestScore.textContent = localStorage.getItem('bestScore') || '0';
+
+birdImg.onload = () => {
+draw();
+};
+</script>
+</body>
+</html>
